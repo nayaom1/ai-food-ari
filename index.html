@@ -634,13 +634,32 @@
     <div class="divider"></div>
     <div class="sec-label">// N8N AUTOMATION — EVIDENCE</div>
     <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-left:3px solid #febc2e;padding:14px 18px;border-radius:3px;margin-bottom:16px">
-      <div style="color:#febc2e;font-size:11px;font-weight:bold;margin-bottom:8px">⚡ n8n Workflow: Google Sheets → Top 3 Summary → Email Notification</div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.8">
-        <span style="color:var(--text)">Trigger:</span> Manual Trigger node<br>
-        <span style="color:var(--text)">Step 1:</span> Google Sheets node — อ่านข้อมูล scoring tab (Top 3 rows)<br>
-        <span style="color:var(--text)">Step 2:</span> Code node — จัด format ข้อมูล Top 3 เป็น summary text<br>
-        <span style="color:var(--text)">Step 3:</span> Gmail node — ส่งอีเมลสรุป Top 3 พร้อมคะแนนแบบอัตโนมัติ<br>
-        <span style="color:var(--green)">✓ Workflow executed successfully</span> — ดู screenshot หลักฐานใน submission
+      <div style="color:#febc2e;font-size:11px;font-weight:bold;margin-bottom:12px">⚡ n8n Workflow: Webhook → Google Sheets → Respond to Webhook → Website</div>
+      <div style="font-size:11px;color:var(--muted);line-height:2">
+        <span style="color:var(--text)">Trigger:</span> Webhook node (GET) — รับ request จากหน้าเว็บ<br>
+        <span style="color:var(--text)">Step 1:</span> Google Sheets node — ดึงข้อมูลทั้งหมดจาก scoring tab (66 ร้าน)<br>
+        <span style="color:var(--text)">Step 2:</span> Respond to Webhook node — ส่งข้อมูลกลับเป็น JSON<br>
+        <span style="color:var(--text)">Step 3:</span> Vercel Proxy (api/proxy.js) — รับ JSON ส่งต่อให้หน้าเว็บ<br>
+        <span style="color:var(--text)">Step 4:</span> หน้าเว็บ render ตาราง Top 10 ใหม่อัตโนมัติ<br>
+        <span style="color:var(--green)">✓ Workflow Active</span> — Production URL: <span style="color:var(--blue)">https://n8n-external.exservice.io/webhook/top10</span>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <div style="background:#111;border:1px solid #2a2a2a;padding:8px 14px;border-radius:3px;font-size:10px">
+          <span style="color:var(--muted)">Webhook Path</span><br>
+          <span style="color:var(--green)">GET /webhook/top10</span>
+        </div>
+        <div style="background:#111;border:1px solid #2a2a2a;padding:8px 14px;border-radius:3px;font-size:10px">
+          <span style="color:var(--muted)">Data Source</span><br>
+          <span style="color:var(--green)">Google Sheets — scoring tab</span>
+        </div>
+        <div style="background:#111;border:1px solid #2a2a2a;padding:8px 14px;border-radius:3px;font-size:10px">
+          <span style="color:var(--muted)">Output</span><br>
+          <span style="color:var(--green)">JSON · 66 rows · Real-time</span>
+        </div>
+        <div style="background:#111;border:1px solid #2a2a2a;padding:8px 14px;border-radius:3px;font-size:10px">
+          <span style="color:var(--muted)">Status</span><br>
+          <span style="color:var(--green)">● Active</span>
+        </div>
       </div>
     </div>
     <div class="sec-label">// OUTPUT FILES</div>
