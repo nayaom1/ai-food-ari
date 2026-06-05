@@ -785,7 +785,15 @@
     <div class="controls">−□×</div>
   </div>
   <div class="panel-body">
-    <div class="sec-label">// RANKED BY WEIGHTED SCORE · คลิกแถวเพื่อดูรายละเอียด</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <div class="sec-label" style="margin:0">// RANKED BY WEIGHTED SCORE · คลิกแถวเพื่อดูรายละเอียด</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="n8nStatus" style="font-size:10px;color:var(--muted)">● ใช้ข้อมูล local</div>
+        <button id="refreshBtn" onclick="fetchFromN8n()" style="background:#1a1a1a;border:1px solid var(--green);color:var(--green);font-family:var(--font);font-size:11px;padding:6px 14px;border-radius:3px;cursor:pointer;display:flex;align-items:center;gap:6px">
+          🔄 Refresh จาก n8n
+        </button>
+      </div>
+    </div>
     <div class="top10-wrap">
       <table class="top10-table">
         <thead>
@@ -999,6 +1007,84 @@ function renderScoring() {
         <td style="color:var(--muted);font-size:11px">${c.desc}</td>
       </tr>`;
   });
+}
+
+// ─── FETCH FROM N8N WEBHOOK ────────────────────────────────────────────────────
+const N8N_WEBHOOK = 'https://n8n-external.exservice.io/webhook/Top 10';
+
+async function fetchFromN8n() {
+  const btn = document.getElementById('refreshBtn');
+  const status = document.getElementById('n8nStatus');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ กำลังดึงข้อมูล...';
+  status.style.color = 'var(--yellow)';
+  status.textContent = '● กำลังเชื่อมต่อ n8n...';
+
+  try {
+    const res = await fetch(N8N_WEBHOOK, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    // n8n Google Sheets returns array of objects with column names as keys
+    // Map to TOP10 format
+    const rows = Array.isArray(data) ? data : (data.data || []);
+    if (!rows.length) throw new Error('No data returned');
+
+    const mapped = rows.slice(0, 10).map((r, i) => ({
+      rank:  i + 1,
+      name:  r['Restaurant Name'] || r['name'] || r['ชื่อร้าน'] || '—',
+      type:  r['Food Type'] || r['type'] || r['ประเภท'] || '—',
+      rating: parseFloat(r['Rating'] || r['rating'] || 0),
+      reviews: parseInt(r['Review Count'] || r['reviews'] || 0),
+      price: r['Price Level'] || r['price'] || '—',
+      total: parseFloat(r['Total Score'] || r['total'] || r['Score_Total'] || 0),
+      rat:   parseFloat(r['Score_Rating'] || r['rat'] || 0),
+      grp:   parseFloat(r['Score_Group']  || r['grp'] || 0),
+      prc:   parseFloat(r['Score_Price']  || r['prc'] || 0),
+      trv:   parseFloat(r['Score_Travel'] || r['trv'] || 0),
+      dat:   parseFloat(r['Score_Data']   || r['dat'] || 0),
+      unq:   parseFloat(r['Score_Unique'] || r['unq'] || 0),
+      url:   r['URL'] || r['url'] || ''
+    }));
+
+    // Re-render table
+    const tbody = document.getElementById('top10Body');
+    tbody.innerHTML = '';
+    mapped.forEach(r => {
+      tbody.innerHTML += `
+        <tr>
+          <td style="text-align:center">${rankBadge(r.rank)}</td>
+          <td style="max-width:200px;white-space:normal;line-height:1.4">${r.name}</td>
+          <td>${foodTag(r.type)}</td>
+          <td><span style="color:var(--yellow)">★</span> ${r.rating}</td>
+          <td>${r.reviews.toLocaleString()}</td>
+          <td style="color:var(--muted);font-size:10px">${r.price}</td>
+          <td><span class="score-pill">${r.total}</span></td>
+          <td class="sub-scores">${r.rat}</td>
+          <td class="sub-scores">${r.grp}</td>
+          <td class="sub-scores">${r.prc}</td>
+          <td class="sub-scores">${r.trv}</td>
+          <td class="sub-scores">${r.dat}</td>
+          <td class="sub-scores">${r.unq}</td>
+          <td>${r.url ? '<a href="'+r.url+'" target="_blank" style="color:var(--blue);font-size:10px;text-decoration:none;border:1px solid rgba(79,195,247,0.3);padding:2px 6px;border-radius:2px;white-space:nowrap">↗ Maps</a>' : '<span style="color:var(--muted2);font-size:10px">—</span>'}</td>
+        </tr>`;
+    });
+
+    status.style.color = 'var(--green)';
+    status.textContent = '● ข้อมูลจาก n8n (' + new Date().toLocaleTimeString('th-TH') + ')';
+    btn.innerHTML = '✅ โหลดสำเร็จ';
+    setTimeout(() => { btn.disabled = false; btn.innerHTML = '🔄 Refresh จาก n8n'; }, 2000);
+
+  } catch (err) {
+    status.style.color = '#ef5350';
+    status.textContent = '● เชื่อมต่อไม่ได้: ' + err.message;
+    btn.disabled = false;
+    btn.innerHTML = '🔄 Refresh จาก n8n';
+    console.error('n8n fetch error:', err);
+  }
 }
 
 // ─── RENDER TOP 10 ─────────────────────────────────────────────────────────────
