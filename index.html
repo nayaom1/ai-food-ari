@@ -1050,21 +1050,27 @@ async function fetchFromN8n() {
     const rows = Array.isArray(data) ? data : (data.data || []);
     if (!rows.length) throw new Error('No data returned');
 
-    const mapped = rows.slice(0, 10).map((r, i) => ({
+    // Sort by Total Score descending first
+    const sorted = [...rows].sort((a, b) => {
+      const sa = parseFloat(a['Total Score'] || a['Score_Total'] || 0);
+      const sb = parseFloat(b['Total Score'] || b['Score_Total'] || 0);
+      return sb - sa;
+    });
+    const mapped = sorted.slice(0, 10).map((r, i) => ({
       rank:  i + 1,
       name:  r['Restaurant Name'] || r['name'] || r['ชื่อร้าน'] || '—',
       type:  r['Food Type'] || r['type'] || r['ประเภท'] || '—',
-      rating: parseFloat(r['Rating'] || r['rating'] || 0),
+      rating: parseFloat(r['Google Rating'] || r['Rating'] || r['rating'] || 0),
       reviews: parseInt(r['Review Count'] || r['reviews'] || 0),
-      price: r['Price Level'] || r['price'] || '—',
-      total: parseFloat(r['Total Score'] || r['total'] || r['Score_Total'] || 0),
+      price: r['Price Range'] || r['Price Level'] || r['price'] || '—',
+      total: parseFloat(r['Total Score'] || r['Score_Total'] || r['total'] || 0),
       rat:   parseFloat(r['Score_Rating'] || r['rat'] || 0),
       grp:   parseFloat(r['Score_Group']  || r['grp'] || 0),
       prc:   parseFloat(r['Score_Price']  || r['prc'] || 0),
       trv:   parseFloat(r['Score_Travel'] || r['trv'] || 0),
       dat:   parseFloat(r['Score_Data']   || r['dat'] || 0),
       unq:   parseFloat(r['Score_Unique'] || r['unq'] || 0),
-      url:   r['URL'] || r['url'] || ''
+      url:   r['Google Maps URL'] || r['Website'] || r['URL'] || r['url'] || ''
     }));
 
     // Re-render table
