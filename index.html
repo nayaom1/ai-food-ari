@@ -1010,7 +1010,7 @@ function renderScoring() {
 }
 
 // ─── FETCH FROM N8N WEBHOOK ────────────────────────────────────────────────────
-const N8N_WEBHOOK = 'https://n8n-external.exservice.io/webhook/Top 10';
+const N8N_WEBHOOK = 'https://n8n-external.exservice.io/webhook/top10';
 
 async function fetchFromN8n() {
   const btn = document.getElementById('refreshBtn');
@@ -1021,7 +1021,9 @@ async function fetchFromN8n() {
   status.textContent = '● กำลังเชื่อมต่อ n8n...';
 
   try {
-    const res = await fetch(N8N_WEBHOOK, {
+    // Use CORS proxy to bypass cross-origin restriction
+    const PROXY = 'https://corsproxy.io/?url=';
+    const res = await fetch(PROXY + encodeURIComponent(N8N_WEBHOOK), {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
