@@ -1021,12 +1021,20 @@ async function fetchFromN8n() {
   status.textContent = '● กำลังเชื่อมต่อ n8n...';
 
   try {
-    // Use CORS proxy to bypass cross-origin restriction
-    const PROXY = 'https://corsproxy.io/?url=';
-    const res = await fetch(PROXY + encodeURIComponent(N8N_WEBHOOK), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    // Try multiple CORS proxies in sequence
+    const proxies = [
+      'https://api.allorigins.win/raw?url=',
+      'https://corsproxy.io/?url=',
+      'https://proxy.cors.sh/',
+    ];
+    let res = null;
+    for (const proxy of proxies) {
+      try {
+        res = await fetch(proxy + encodeURIComponent(N8N_WEBHOOK), { method: 'GET' });
+        if (res.ok) break;
+      } catch(e) { continue; }
+    }
+    if (!res || !res.ok) throw new Error('All proxies failed');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
 
