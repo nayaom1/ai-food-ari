@@ -846,7 +846,15 @@
     <div class="controls">−□×</div>
   </div>
   <div class="panel-body">
-    <div class="sec-label">// BEST FIT FOR TEAM 8–12 · WITH TRADE-OFF ANALYSIS</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <div class="sec-label" style="margin:0">// BEST FIT FOR TEAM 8–12 · WITH TRADE-OFF ANALYSIS</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="top3Status" style="font-size:10px;color:var(--muted)">● ใช้ข้อมูล local</div>
+        <button id="refreshTop3Btn" onclick="fetchTop3FromN8n()" style="background:#1a1a1a;border:1px solid var(--yellow);color:var(--yellow);font-family:var(--font);font-size:11px;padding:6px 14px;border-radius:3px;cursor:pointer">
+          🔄 Refresh จาก n8n
+        </button>
+      </div>
+    </div>
     <div class="top3-grid" id="top3Grid"></div>
   </div>
 </div>
@@ -1151,6 +1159,131 @@ function renderTop10() {
 }
 
 // ─── RENDER TOP 3 CARDS ────────────────────────────────────────────────────────
+// ─── FETCH TOP3 FROM N8N ────────────────────────────────────────────────────────
+const N8N_PROXY = 'https://ai-food-ari.vercel.app/api/proxy';
+const TIERS = ['gold','silver','bronze'];
+const MEDALS = ['🥇 อันดับ 1','🥈 อันดับ 2','🥉 อันดับ 3'];
+const BAR_COLORS = ['#00e5a0','#4fc3f7','#ffd700','#ab47bc','#ff9800','#ef5350'];
+
+async function fetchTop3FromN8n() {
+  const btn = document.getElementById('refreshTop3Btn');
+  const status = document.getElementById('top3Status');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ กำลังดึงข้อมูล...';
+  status.style.color = 'var(--yellow)';
+  status.textContent = '● กำลังเชื่อมต่อ n8n...';
+
+  try {
+    const res = await fetch(N8N_PROXY, { method: 'GET' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : (data.data || []);
+    if (!rows.length) throw new Error('No data');
+
+    // Sort by Total Score and take top 3
+    const sorted = [...rows].sort((a,b) =>
+      parseFloat(b['Total Score']||b['Score_Total']||0) - parseFloat(a['Total Score']||a['Score_Total']||0)
+    ).slice(0,3);
+
+    // Build TOP3 data from Sheets columns
+    const top3 = sorted.map((r, i) => ({
+      rank: i+1,
+      tier: TIERS[i],
+      label: MEDALS[i],
+      name: r['Restaurant Name'] || '—',
+      type: r['Food Type'] || '—',
+      rating: parseFloat(r['Google Rating'] || r['Rating'] || 0),
+      reviews: parseInt(r['Review Count'] || 0).toLocaleString(),
+      price: r['Price Range'] || r['Price Level'] || '—',
+      total: parseFloat(r['Total Score'] || r['Score_Total'] || 0),
+      url: r['Google Maps URL'] || r['Website'] || '',
+      scores: {
+        Rating: parseFloat(r['Score_Rating']||0),
+        Group:  parseFloat(r['Score_Group']||0),
+        Price:  parseFloat(r['Score_Price']||0),
+        Travel: parseFloat(r['Score_Travel']||0),
+        Data:   parseFloat(r['Score_Data']||0),
+        Unique: parseFloat(r['Score_Unique']||0),
+      },
+      maxes: [25,20,15,15,15,10],
+    }));
+
+    // Re-render Top3 grid
+    const grid = document.getElementById('top3Grid');
+    grid.innerHTML = '';
+    top3.forEach(r => {
+      const scoreKeys = Object.keys(r.scores);
+      const barsHtml = scoreKeys.map((k,i) => {
+        const val = r.scores[k];
+        const pct = (val / r.maxes[i] * 100).toFixed(0);
+        return `<div class="mini-bar-row">
+          <div class="mini-bar-lbl">${k}</div>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${pct}%;background:${BAR_COLORS[i]}"></div></div>
+          <div class="mini-bar-val">${val%1===0?val:val.toFixed(1)}</div>
+        </div>`;
+      }).join('');
+
+      grid.innerHTML += `
+        <div class="top3-card ${r.tier}">
+          <div class="top3-ribbon">${r.label}</div>
+          <div class="top3-body">
+            <div class="top3-name">${r.name}</div>
+            ${r.url ? '<a href="'+r.url+'" target="_blank" style="display:inline-block;margin-bottom:6px;font-size:10px;color:var(--blue);text-decoration:none;border:1px solid rgba(79,195,247,0.3);padding:3px 10px;border-radius:2px">↗ ดูบน Google Maps / TripAdvisor</a>' : ''}
+            <div class="top3-score-row">
+              <div class="top3-score">${r.total}</div>
+              <div class="top3-score-max">/ 100 คะแนน</div>
+            </div>
+            <div class="top3-meta">
+              <span class="meta-chip">⭐ ${r.rating}</span>
+              <span class="meta-chip">💬 ${r.reviews}</span>
+              <span class="meta-chip">💰 ${r.price}</span>
+              <span class="meta-chip">🍽 ${r.type}</span>
+            </div>
+            <div class="mini-bars">${barsHtml}</div>
+          </div>
+        </div>`;
+    });
+
+    // Re-render Comparison table
+    const table = document.getElementById('cmpTable');
+    const [r1, r2, r3] = top3;
+    const cmpData = [
+      { label:'คะแนนรวม',      vals:[r1.total+' pts', r2.total+' pts', r3.total+' pts'], type:['good','ok','ok'] },
+      { label:'Rating',        vals:['⭐ '+r1.rating, '⭐ '+r2.rating, '⭐ '+r3.rating], type:['good','ok','warn'] },
+      { label:'รีวิว',          vals:[r1.reviews+' reviews', r2.reviews+' reviews', r3.reviews+' reviews'], type:['good','ok','ok'] },
+      { label:'ราคา/คน',       vals:[r1.price, r2.price, r3.price], type:['good','warn','good'] },
+      { label:'ประเภทอาหาร',   vals:[r1.type, r2.type, r3.type], type:['ok','ok','ok'] },
+      { label:'Group Score',   vals:[r1.scores.Group+'/20', r2.scores.Group+'/20', r3.scores.Group+'/20'], type:['good','good','good'] },
+      { label:'Unique Score',  vals:[r1.scores.Unique+'/10', r2.scores.Unique+'/10', r3.scores.Unique+'/10'], type:['warn','good','warn'] },
+    ];
+    const colorMap = { good:'cmp-good', warn:'cmp-warn', ok:'cmp-ok' };
+    let tableHtml = `<thead><tr>
+      <th style="min-width:110px">หัวข้อ</th>
+      <th style="min-width:160px"><span style="color:var(--yellow)">🥇</span> ${r1.name}<br><small style="color:var(--muted)">${r1.total} pts</small></th>
+      <th style="min-width:160px"><span style="color:#c0c0c0">🥈</span> ${r2.name}<br><small style="color:var(--muted)">${r2.total} pts</small></th>
+      <th style="min-width:160px"><span style="color:#cd7f32">🥉</span> ${r3.name}<br><small style="color:var(--muted)">${r3.total} pts</small></th>
+    </tr></thead><tbody>`;
+    cmpData.forEach(row => {
+      tableHtml += `<tr><td>${row.label}</td>`;
+      row.vals.forEach((v,i) => { tableHtml += `<td class="${colorMap[row.type[i]]||''}">${v}</td>`; });
+      tableHtml += `</tr>`;
+    });
+    tableHtml += `</tbody>`;
+    table.innerHTML = tableHtml;
+
+    status.style.color = 'var(--green)';
+    status.textContent = '● ข้อมูลจาก n8n (' + new Date().toLocaleTimeString('th-TH') + ')';
+    btn.innerHTML = '✅ โหลดสำเร็จ';
+    setTimeout(() => { btn.disabled=false; btn.innerHTML='🔄 Refresh จาก n8n'; }, 2000);
+
+  } catch(err) {
+    status.style.color = '#ef5350';
+    status.textContent = '● เชื่อมต่อไม่ได้: ' + err.message;
+    btn.disabled = false;
+    btn.innerHTML = '🔄 Refresh จาก n8n';
+  }
+}
+
 function renderTop3() {
   const grid = document.getElementById('top3Grid');
   TOP3_DETAIL.forEach(r => {
